@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # Ollama service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: llm-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - llm-network
+
+  # API Server
+  api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: llm-api-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+      - ./models:/app/models
+      - ./logs:/app/logs
+    environment:
+      - MODEL_BACKEND=${MODEL_BACKEND:-ollama}
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-phi3:mini}
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - llm-network
+
+volumes:
+  ollama_data:
+
+networks:
+  llm-network:
+    driver: bridge
