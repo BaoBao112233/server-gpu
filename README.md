@@ -1,105 +1,192 @@
-# 🤖 LLM API Server
+# 🤖 LLM + Voice API Server (24GB VRAM Optimized)
 
-Scalable LLM hosting server with support for multiple backends (Ollama, vLLM, llama.cpp). Built with FastAPI and designed to be easily deployed across different hardware configurations.
+Self-hosted LLM, VLLM, and Voice Model server optimized for single GPU with 24GB VRAM. Supports high-performance text generation, speech-to-text (Whisper), and text-to-speech (TTS).
 
 ## ✨ Features
 
-- **🔄 Multiple Backend Support**: Ollama, vLLM, llama.cpp (easily switchable)
-- **🚀 OpenAI-Compatible API**: Drop-in replacement for OpenAI API
-- **💬 Streaming Support**: Real-time response streaming
-- **🎯 Model Flexibility**: Easy to change models for different server configurations
-- **🐳 Docker Support**: Containerized deployment with GPU support
-- **📊 Built-in Chat UI**: Simple web interface for testing
-- **🔐 API Key Authentication**: Optional security layer
+- 🚀 **High-Performance LLM Inference** with vLLM
+- 🗣️ **Speech-to-Text** using OpenAI Whisper (multiple model sizes)
+- 🎤 **Text-to-Speech** using Coqui TTS/XTTS v2 (multilingual, voice cloning)
+- 🔄 **Multiple Backend Support** (vLLM recommended, Ollama optional)
+- 🌐 **OpenAI-Compatible API** for easy integration
+- 📊 **GPU Memory Management** optimized for 24GB VRAM
+- 🐳 **Docker Support** with GPU acceleration
+- 💬 **Streaming Support** for real-time responses
+
+## � GPU Memory Allocation (24GB)
+
+| Component | Allocation | VRAM | Use Case |
+|-----------|-----------|------|----------|
+| LLM (vLLM) | 50% | ~12GB | Text generation, chat |
+| Voice Models | 30% | ~7GB | STT (Whisper) + TTS |
+| Buffer/Shared | 20% | ~5GB | CUDA operations, cache |
+
+## 🎯 Supported Models
+
+### LLM Models (vLLM - Recommended)
+### LLM Models (vLLM - Recommended)
+- **Llama 3.1 8B Instruct** ✅ (~10GB) - Best general purpose
+- **Mistral 7B Instruct** (~9GB) - Excellent instruction following
+- **Qwen 2.5 7B Instruct** (~9GB) - Multilingual support
+
+### LLM Models (Ollama - Alternative)
+- **Llama 3.1 8B** (~8GB)
+- **Mistral 7B** (~7GB)
+- **Qwen 2.5 14B** (~12GB) - Larger model option
+- **Gemma2 9B** (~10GB)
+
+### Voice Models
+- **Whisper STT**: tiny, base ✅, small, medium, large-v3
+- **TTS**: XTTS v2 ✅ (multilingual, 16+ languages), Tacotron2
 
 ## 📋 Requirements
 
-### Current Configuration (GTX 1050 Ti - 4GB VRAM)
-- **CPU**: Intel i3-10105F (4 cores, 8 threads)
-- **RAM**: 16GB
-- **GPU**: NVIDIA GTX 1050 Ti (4GB VRAM)
-- **CUDA**: 12.9
-
-### Recommended Models for This Configuration
-- `phi3:mini` (3.8B) - **Recommended** ⭐
-- `llama3.2:1b` (1B) - Very fast
-- `qwen2.5:1.5b` (1.5B) - Good balance
-- `gemma:2b` (2B) - Compact
-
-### For Upgraded Servers (8GB+ VRAM)
-- `llama3.1:8b`
-- `mistral:7b`
-- `gemma2:9b`
-
-### For High-End Servers (24GB+ VRAM)
-- `llama3.1:70b`
-- `mixtral:8x7b`
+- **GPU**: NVIDIA GPU with 24GB VRAM (RTX 3090, RTX 4090, A5000, etc.)
+- **RAM**: 32GB+ recommended
+- **CUDA**: 12.4+
+- **Storage**: 50GB+ for models
+- **OS**: Linux (Ubuntu 22.04+ recommended)
 
 ## 🚀 Quick Start
 
-### Option 1: Docker (Recommended)
+### 1. Setup Environment
 
-1. **Clone and setup**:
 ```bash
-cd /home/baobao/Projects/server-gpu
-chmod +x scripts/*.sh
-./scripts/setup.sh
+# Clone and setup
+chmod +x scripts/setup-24gb.sh
+./scripts/setup-24gb.sh
 ```
 
-2. **Access the services**:
-- API Server: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
-- Chat UI: Open `static/index.html` in browser
+### 2. Install Dependencies
 
-### Option 2: Local Development
-
-1. **Setup environment**:
 ```bash
-./scripts/dev-setup.sh
-source venv/bin/activate
+# Install Python dependencies
+pip install -r requirements.txt
 ```
 
-2. **Install and start Ollama** (if not using Docker):
+### 3. Run Server
+
+#### Option A: Docker (Recommended)
+
 ```bash
-# Install Ollama from https://ollama.ai
-curl -fsSL https://ollama.ai/install.sh | sh
+# Using vLLM backend (recommended)
+docker-compose build
+docker-compose up -d
 
-# Pull a model
-ollama pull phi3:mini
+# Using Ollama backend (optional)
+docker-compose --profile ollama up -d
 
-# Run Ollama (in separate terminal)
-ollama serve
+# View logs
+docker-compose logs -f api-server
 ```
 
-3. **Start the API server**:
+#### Option B: Local Development
+
 ```bash
+# Start server
 python main.py
+```
+
+### 4. Monitor GPU Usage
+
+```bash
+# Monitor VRAM in real-time
+./scripts/gpu-monitor.sh
+
+# Check every 2 seconds with 95% alert threshold
+./scripts/gpu-monitor.sh 2 95
+```
+
+### 5. Access API
+
+- **API Server**: <http://localhost:8000>
+- **API Documentation**: <http://localhost:8000/docs>
+- **Health Check**: <http://localhost:8000/health>
+
+## ⚙️ Configuration
+
+Create or edit `.env` file:
+
+```bash
+# Backend: vllm (recommended) or ollama
+MODEL_BACKEND=vllm
+
+# vLLM Configuration (Recommended for 24GB)
+VLLM_MODEL=meta-llama/Meta-Llama-3.1-8B-Instruct
+VLLM_GPU_MEMORY_UTILIZATION=0.50  # 50% for LLM (~12GB)
+VLLM_MAX_MODEL_LEN=8192
+
+# Voice Configuration
+WHISPER_MODEL=base              # tiny, base, small, medium, large-v3
+TTS_MODEL=tts_models/multilingual/multi-dataset/xtts_v2
+VOICE_GPU_MEMORY_FRACTION=0.30  # 30% for Voice (~7GB)
+
+# Server Settings
+HOST=0.0.0.0
+PORT=8000
+LOG_LEVEL=INFO
 ```
 
 ## 📖 API Usage
 
-### Chat Completion
+### Chat Completion (LLM)
 
-```python
-import requests
-
-response = requests.post(
-    "http://localhost:8000/v1/chat/completions",
-    json={
-        "model": "phi3:mini",
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": "Hello!"}
-        ],
-        "temperature": 0.7,
-        "max_tokens": 2048
-    }
-)
-
-print(response.json())
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "Explain quantum computing in simple terms."}
+    ],
+    "temperature": 0.7,
+    "max_tokens": 500
+  }'
 ```
 
-### Streaming
+### Speech-to-Text (Whisper)
+
+```bash
+# Transcribe audio file
+curl -X POST http://localhost:8000/v1/audio/transcriptions \
+  -F "file=@audio.mp3" \
+  -F "model=whisper-base" \
+  -F "language=en"
+
+# Auto-detect language
+curl -X POST http://localhost:8000/v1/audio/transcriptions \
+  -F "file=@audio.wav" \
+  -F "model=whisper-base"
+```
+
+### Text-to-Speech (TTS)
+
+```bash
+# Generate speech from text
+curl -X POST http://localhost:8000/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "tts-1",
+    "input": "Hello, how are you today?",
+    "voice": "alloy",
+    "language": "en",
+    "speed": 1.0
+  }' \
+  --output speech.wav
+
+# Vietnamese TTS
+curl -X POST http://localhost:8000/v1/audio/speech \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "tts-1",
+    "input": "Xin chào, bạn khỏe không?",
+    "language": "vi"
+  }' \
+  --output speech_vi.wav
+```
+
+### Python SDK Usage
 
 ```python
 import requests

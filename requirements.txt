@@ -1,3 +1,4 @@
+# Core FastAPI dependencies
 fastapi==0.115.0
 uvicorn[standard]==0.31.0
 pydantic==2.9.2
@@ -7,11 +8,36 @@ httpx==0.27.2
 aiofiles==24.1.0
 python-multipart==0.0.12
 
-# Optional backends (install as needed)
+# LLM Backends
+# Ollama client (lightweight)
 # ollama==0.3.3
-# vllm==0.6.2
-# llama-cpp-python==0.2.90
+
+# vLLM for high-performance inference (24GB VRAM optimized)
+vllm==0.6.3
+torch==2.5.1
+transformers==4.46.2
+accelerate==1.1.1
+
+# Voice Models (Whisper + TTS)
+openai-whisper==20240930
+git+https://github.com/coqui-ai/TTS.git@dev
+# Pre-trained models will be downloaded on first use
+
+# Audio processing
+soundfile==0.12.1
+librosa==0.10.2
+pydub==0.25.1
 
 # Utilities
 pyyaml==6.0.2
 jinja2==3.1.4
+numpy==1.26.4
+scipy==1.14.1
+
+# GPU monitoring
+nvidia-ml-py3==7.352.0
+gputil==1.4.0
+
+# Optional: llama-cpp-python for GGUF models
+# llama-cpp-python==0.2.90
+

@@ -19,7 +19,7 @@ class ChatCompletionRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "model": "phi3:mini",
+                "model": "llama3.1:8b",
                 "messages": [
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": "Hello, how are you?"}
@@ -92,6 +92,61 @@ class EmbeddingResponse(BaseModel):
     usage: Usage
 
 
+# Voice Models
+
+class TranscriptionRequest(BaseModel):
+    """OpenAI-compatible transcription request"""
+    file: bytes = Field(..., description="Audio file to transcribe")
+    model: str = Field(default="whisper-base", description="Whisper model to use")
+    language: Optional[str] = Field(None, description="Language code (e.g., 'en', 'vi', 'ja')")
+    prompt: Optional[str] = Field(None, description="Optional text to guide the model")
+    temperature: Optional[float] = Field(0.0, ge=0.0, le=1.0, description="Sampling temperature")
+    response_format: Optional[str] = Field("json", description="Response format: json, text, srt, vtt")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "model": "whisper-base",
+                "language": "en",
+                "response_format": "json"
+            }
+        }
+
+
+class TranscriptionResponse(BaseModel):
+    """OpenAI-compatible transcription response"""
+    text: str = Field(..., description="Transcribed text")
+    language: Optional[str] = Field(None, description="Detected language")
+    duration: Optional[float] = Field(None, description="Audio duration in seconds")
+    segments: Optional[List[Dict[str, Any]]] = Field(None, description="Detailed segments with timestamps")
+
+
+class SpeechRequest(BaseModel):
+    """OpenAI-compatible text-to-speech request"""
+    model: str = Field(..., description="TTS model to use")
+    input: str = Field(..., description="Text to synthesize", max_length=4096)
+    voice: Optional[str] = Field("alloy", description="Voice name or speaker ID")
+    language: Optional[str] = Field("en", description="Language code")
+    speed: Optional[float] = Field(1.0, ge=0.25, le=4.0, description="Speech speed")
+    response_format: Optional[str] = Field("mp3", description="Audio format: mp3, opus, aac, flac, wav")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "model": "tts-1",
+                "input": "Hello, how are you today?",
+                "voice": "alloy",
+                "language": "en",
+                "speed": 1.0
+            }
+        }
+
+
+class VoiceListResponse(BaseModel):
+    """List of available voices"""
+    voices: List[str] = Field(..., description="Available voice names")
+
+
 class ModelInfo(BaseModel):
     id: str
     object: str = "model"
@@ -109,3 +164,5 @@ class HealthResponse(BaseModel):
     backend: str
     model: str
     gpu_available: bool
+    vram_usage: Optional[Dict[str, Any]] = None
+

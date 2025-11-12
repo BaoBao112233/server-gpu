@@ -1,54 +1,91 @@
 models:
-  # Recommended models for GTX 1050 Ti (4GB VRAM)
-  small:
-    - name: "phi3:mini"
-      backend: "ollama"
-      description: "Microsoft Phi-3 Mini (3.8B) - Best for low VRAM"
-      ram_required: "4GB"
-      
-    - name: "llama3.2:1b"
-      backend: "ollama"
-      description: "Llama 3.2 1B - Ultra fast, minimal resources"
-      ram_required: "2GB"
-      
-    - name: "qwen2.5:1.5b"
-      backend: "ollama"
-      description: "Qwen 2.5 1.5B - Efficient multilingual model"
-      ram_required: "2GB"
-      
-    - name: "gemma:2b"
-      backend: "ollama"
-      description: "Google Gemma 2B - Compact and capable"
-      ram_required: "3GB"
-
-  # Models for servers with more VRAM (8GB+)
-  medium:
+  # Optimized models for 24GB VRAM GPU
+  # Strategy: Allocate ~12-14GB for LLM, ~7-8GB for Voice models, ~2-3GB buffer
+  
+  # LLM Models (Ollama) - Use 40-50% VRAM (~10-12GB)
+  llm_ollama:
     - name: "llama3.1:8b"
       backend: "ollama"
-      description: "Llama 3.1 8B - Powerful general purpose"
-      ram_required: "8GB"
+      description: "Llama 3.1 8B - Best general purpose for 24GB VRAM"
+      vram_required: "8GB"
+      recommended: true
       
-    - name: "mistral:7b"
+    - name: "mistral:7b-instruct"
       backend: "ollama"
-      description: "Mistral 7B - Excellent performance"
-      ram_required: "8GB"
+      description: "Mistral 7B Instruct - Excellent instruction following"
+      vram_required: "7GB"
+      recommended: true
+      
+    - name: "qwen2.5:14b"
+      backend: "ollama"
+      description: "Qwen 2.5 14B - Powerful multilingual, supports Vietnamese"
+      vram_required: "12GB"
       
     - name: "gemma2:9b"
       backend: "ollama"
       description: "Google Gemma 2 9B - Latest from Google"
-      ram_required: "10GB"
-
-  # Models for high-end servers (24GB+ VRAM)
-  large:
-    - name: "llama3.1:70b"
-      backend: "ollama"
-      description: "Llama 3.1 70B - High performance"
-      ram_required: "40GB"
+      vram_required: "10GB"
       
-    - name: "mixtral:8x7b"
+    - name: "phi3:medium"
       backend: "ollama"
-      description: "Mixtral 8x7B - MoE architecture"
-      ram_required: "48GB"
+      description: "Microsoft Phi-3 Medium 14B - Efficient and capable"
+      vram_required: "10GB"
+
+  # LLM Models (vLLM) - Use 50-60% VRAM (~12-14GB) for high throughput
+  llm_vllm:
+    - name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+      backend: "vllm"
+      description: "Llama 3.1 8B with vLLM for faster inference"
+      vram_required: "10GB"
+      gpu_memory_utilization: 0.85
+      max_model_len: 8192
+      recommended: true
+      
+    - name: "mistralai/Mistral-7B-Instruct-v0.3"
+      backend: "vllm"
+      description: "Mistral 7B with vLLM optimization"
+      vram_required: "9GB"
+      gpu_memory_utilization: 0.85
+      max_model_len: 8192
+      
+    - name: "Qwen/Qwen2.5-7B-Instruct"
+      backend: "vllm"
+      description: "Qwen 2.5 7B with vLLM for multilingual tasks"
+      vram_required: "9GB"
+      gpu_memory_utilization: 0.85
+      max_model_len: 8192
+
+  # Voice Models - Allocate ~30% VRAM (~7-8GB)
+  voice:
+    whisper:
+      - name: "base"
+        description: "Whisper Base - Fast and accurate for most use cases"
+        vram_required: "1GB"
+        recommended: true
+        
+      - name: "small"
+        description: "Whisper Small - Better accuracy, still fast"
+        vram_required: "2GB"
+        
+      - name: "medium"
+        description: "Whisper Medium - High accuracy"
+        vram_required: "5GB"
+        
+      - name: "large-v3"
+        description: "Whisper Large V3 - Best accuracy"
+        vram_required: "10GB"
+    
+    tts:
+      - name: "tts_models/multilingual/multi-dataset/xtts_v2"
+        description: "XTTS v2 - High quality multilingual TTS with voice cloning"
+        vram_required: "4GB"
+        recommended: true
+        languages: ["en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru", "nl", "cs", "ar", "zh", "ja", "ko", "hi"]
+        
+      - name: "tts_models/en/ljspeech/tacotron2-DDC"
+        description: "Tacotron2 - Fast English TTS"
+        vram_required: "2GB"
+        languages: ["en"]
 
 # Default generation settings
 generation:
@@ -58,8 +95,35 @@ generation:
   max_tokens: 2048
   repeat_penalty: 1.1
 
+# Voice settings
+voice:
+  whisper:
+    default_model: "base"  # Options: tiny, base, small, medium, large-v3
+    language: "auto"  # Auto-detect or specify: en, vi, ja, etc.
+  
+  tts:
+    default_model: "tts_models/multilingual/multi-dataset/xtts_v2"
+    default_language: "en"
+    speed: 1.0
+
+# GPU Memory Management for 24GB VRAM
+gpu:
+  total_vram: "24GB"
+  allocation:
+    llm: 0.50          # 50% = ~12GB for LLM (Ollama or vLLM)
+    voice: 0.30        # 30% = ~7GB for Voice models (Whisper + TTS)
+    buffer: 0.20       # 20% = ~5GB buffer/shared memory
+  
+  # Memory limits per service
+  limits:
+    ollama_max: "12GB"
+    vllm_max: "14GB"
+    whisper_max: "6GB"
+    tts_max: "5GB"
+
 # Server limits
 server:
-  max_concurrent_requests: 5
+  max_concurrent_requests: 8  # Increased for 24GB GPU
   request_timeout: 300
-  max_content_length: 10000
+  max_content_length: 50000   # Increased for audio files
+  max_audio_file_size: "25MB" # Maximum audio file size

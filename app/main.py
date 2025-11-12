@@ -1,10 +1,11 @@
 import logging
 import time
 import json
+import io
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, Response
 from contextlib import asynccontextmanager
 
 from app.config import get_settings
@@ -17,9 +18,13 @@ from app.models import (
     ModelInfo,
     HealthResponse,
     Usage,
-    EmbeddingData
+    EmbeddingData,
+    TranscriptionRequest,
+    TranscriptionResponse,
+    SpeechRequest,
+    VoiceListResponse
 )
-from app.backends import get_backend
+from app.backends import get_backend, get_voice_backend
 
 # Setup logging
 logging.basicConfig(
@@ -30,21 +35,43 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
+# Global voice backend instance
+voice_backend = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
+    global voice_backend
+    
     logger.info(f"Starting LLM API Server with {settings.model_backend} backend")
-    logger.info(f"Default model: {settings.ollama_model}")
+    logger.info(f"Default model: {settings.ollama_model if settings.model_backend == 'ollama' else settings.vllm_model}")
+    logger.info("Voice models: Whisper (STT) + TTS enabled")
+    
+    # Initialize voice backend
+    try:
+        voice_backend = get_voice_backend()
+        logger.info("Voice backend initialized")
+    except Exception as e:
+        logger.warning(f"Voice backend initialization failed: {e}")
+    
     yield
+    
     logger.info("Shutting down LLM API Server")
+    
+    # Cleanup voice backend
+    if voice_backend:
+        try:
+            await voice_backend.__aexit__(None, None, None)
+        except:
+            pass
 
 
 # Create FastAPI app
 app = FastAPI(
-    title="LLM API Server",
-    description="Scalable LLM API Server with multiple backend support",
-    version="1.0.0",
+    title="LLM + Voice API Server",
+    description="Scalable LLM and Voice API Server with VLLM and Voice Models support (24GB VRAM optimized)",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -76,9 +103,13 @@ async def verify_api_key(authorization: Optional[str] = Header(None)):
 async def root():
     """Root endpoint"""
     return {
-        "message": "LLM API Server",
+        "message": "LLM + Voice API Server",
         "backend": settings.model_backend,
-        "model": settings.ollama_model,
+        "model": settings.ollama_model if settings.model_backend == "ollama" else settings.vllm_model,
+        "voice": {
+            "whisper": settings.whisper_model,
+            "tts": settings.tts_model
+        },
         "docs": "/docs"
     }
 
@@ -91,18 +122,32 @@ async def health_check():
     try:
         is_healthy = await backend.health_check()
         
+        # Get GPU info if available
+        vram_info = None
+        try:
+            import torch
+            if torch.cuda.is_available():
+                vram_info = {
+                    "total": f"{torch.cuda.get_device_properties(0).total_memory / 1e9:.2f}GB",
+                    "allocated": f"{torch.cuda.memory_allocated(0) / 1e9:.2f}GB",
+                    "reserved": f"{torch.cuda.memory_reserved(0) / 1e9:.2f}GB"
+                }
+        except:
+            pass
+        
         return HealthResponse(
             status="healthy" if is_healthy else "unhealthy",
             backend=settings.model_backend,
-            model=settings.ollama_model,
-            gpu_available=True  # Could add actual GPU check here
+            model=settings.ollama_model if settings.model_backend == "ollama" else settings.vllm_model,
+            gpu_available=True,
+            vram_usage=vram_info
         )
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         return HealthResponse(
             status="unhealthy",
             backend=settings.model_backend,
-            model=settings.ollama_model,
+            model=settings.ollama_model if settings.model_backend == "ollama" else settings.vllm_model,
             gpu_available=False
         )
 
@@ -114,6 +159,11 @@ async def list_models(api_key: str = Depends(verify_api_key)):
     
     try:
         models = await backend.list_models()
+        
+        # Add voice models
+        if voice_backend:
+            voice_models = await voice_backend.list_models()
+            models.extend(voice_models)
         
         return ModelListResponse(
             object="list",
@@ -196,6 +246,93 @@ async def create_embeddings(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Voice Endpoints
+
+@app.post("/v1/audio/transcriptions", response_model=TranscriptionResponse)
+async def create_transcription(
+    file: UploadFile = File(...),
+    model: str = Form(default="whisper-base"),
+    language: Optional[str] = Form(None),
+    prompt: Optional[str] = Form(None),
+    temperature: float = Form(default=0.0),
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    OpenAI-compatible audio transcription endpoint
+    Transcribes audio to text using Whisper
+    """
+    if not voice_backend:
+        raise HTTPException(status_code=503, detail="Voice backend not available")
+    
+    try:
+        # Read audio file
+        audio_data = await file.read()
+        audio_file = io.BytesIO(audio_data)
+        
+        # Transcribe
+        result = await voice_backend.transcribe_audio(
+            audio_file=audio_file,
+            language=language,
+            prompt=prompt,
+            temperature=temperature
+        )
+        
+        return TranscriptionResponse(**result)
+        
+    except Exception as e:
+        logger.error(f"Transcription failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/audio/speech")
+async def create_speech(
+    request: SpeechRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    OpenAI-compatible text-to-speech endpoint
+    Generates audio from text using TTS
+    """
+    if not voice_backend:
+        raise HTTPException(status_code=503, detail="Voice backend not available")
+    
+    try:
+        # Synthesize speech
+        audio_data = await voice_backend.synthesize_speech(
+            text=request.input,
+            voice=request.voice,
+            language=request.language,
+            speed=request.speed
+        )
+        
+        # Return audio response
+        return Response(
+            content=audio_data,
+            media_type="audio/wav",
+            headers={
+                "Content-Disposition": 'attachment; filename="speech.wav"'
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Speech synthesis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/v1/audio/voices", response_model=VoiceListResponse)
+async def list_voices(api_key: str = Depends(verify_api_key)):
+    """List available TTS voices"""
+    if not voice_backend:
+        raise HTTPException(status_code=503, detail="Voice backend not available")
+    
+    try:
+        voices = await voice_backend.list_voices()
+        return VoiceListResponse(voices=voices)
+    except Exception as e:
+        logger.error(f"Failed to list voices: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     
@@ -206,3 +343,4 @@ if __name__ == "__main__":
         reload=True,
         log_level=settings.log_level.lower()
     )
+

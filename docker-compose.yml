@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Ollama service
+  # Ollama service (Optional - for Ollama backend)
   ollama:
     image: ollama/ollama:latest
     container_name: llm-ollama
@@ -11,6 +11,9 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0
+      # Limit Ollama to 50% of GPU memory (~12GB for 24GB GPU)
+      - OLLAMA_GPU_OVERHEAD=0
+      - OLLAMA_MAX_LOADED_MODELS=2
     deploy:
       resources:
         reservations:
@@ -18,11 +21,16 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+        limits:
+          # Set memory limits for container
+          memory: 16G
     restart: unless-stopped
     networks:
       - llm-network
+    profiles:
+      - ollama
 
-  # API Server
+  # Main API Server with vLLM + Voice models
   api-server:
     build:
       context: .
@@ -34,19 +42,61 @@ services:
       - ./:/app
       - ./models:/app/models
       - ./logs:/app/logs
+      - huggingface_cache:/root/.cache/huggingface
+      - tts_cache:/root/.local/share/tts
     environment:
-      - MODEL_BACKEND=${MODEL_BACKEND:-ollama}
+      # Backend selection: vllm or ollama
+      - MODEL_BACKEND=${MODEL_BACKEND:-vllm}
+      
+      # Ollama settings (if using ollama backend)
       - OLLAMA_HOST=http://ollama:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-phi3:mini}
-    depends_on:
-      - ollama
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
+      
+      # vLLM settings (recommended for 24GB VRAM)
+      - VLLM_MODEL=${VLLM_MODEL:-meta-llama/Meta-Llama-3.1-8B-Instruct}
+      - VLLM_GPU_MEMORY_UTILIZATION=0.50  # 50% for LLM (~12GB)
+      - VLLM_MAX_MODEL_LEN=8192
+      - VLLM_TENSOR_PARALLEL_SIZE=1
+      
+      # Voice settings
+      - WHISPER_MODEL=${WHISPER_MODEL:-base}
+      - TTS_MODEL=${TTS_MODEL:-tts_models/multilingual/multi-dataset/xtts_v2}
+      - VOICE_DEVICE=cuda
+      - VOICE_GPU_MEMORY_FRACTION=0.30  # 30% for voice (~7GB)
+      
+      # CUDA settings for optimal memory management
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      
+      # API settings
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LOG_LEVEL=INFO
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, compute, utility]
+        limits:
+          memory: 32G  # System RAM limit
     restart: unless-stopped
     networks:
       - llm-network
+    # If using ollama backend, depend on ollama service
+    # depends_on:
+    #   - ollama
 
 volumes:
   ollama_data:
+    driver: local
+  huggingface_cache:
+    driver: local
+  tts_cache:
+    driver: local
 
 networks:
   llm-network:
     driver: bridge
+
