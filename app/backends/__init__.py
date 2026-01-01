@@ -15,8 +15,8 @@ def get_backend() -> BaseBackend:
     elif settings.model_backend == "vllm":
         # TODO: Implement vLLM backend
         raise NotImplementedError("vLLM backend not yet implemented")
-    elif settings.model_backend == "llamacpp":
-        # TODO: Implement llama.cpp backend
-        raise NotImplementedError("llama.cpp backend not yet implemented")
+    elif settings.model_backend in ["llamacpp", "llama-cpp"]:
+        from app.backends.llamacpp import LlamaCppBackend
+        return LlamaCppBackend()
     else:
         raise ValueError(f"Unknown backend: {settings.model_backend}")

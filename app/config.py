@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     workers: int = 1
     
     # Model Backend
-    model_backend: str = "ollama"
+    model_backend: str = "llama-cpp"
     
     # Ollama Configuration
     ollama_host: str = "http://localhost:11434"
@@ -23,10 +23,12 @@ class Settings(BaseSettings):
     vllm_max_model_len: int = 4096
     vllm_tensor_parallel_size: int = 1
     
-    # llama.cpp Configuration
-    llamacpp_model_path: str = "./models/phi-3-mini-4k-instruct.Q4_K_M.gguf"
-    llamacpp_n_ctx: int = 4096
-    llamacpp_n_gpu_layers: int = 32
+    # llama.cpp Configuration (Mini Orca optimized for Orange Pi RV2 4GB)
+    llamacpp_model_path: str = "./models/mini-orca-small-q4_k_m.gguf"
+    llamacpp_n_ctx: int = 2048
+    llamacpp_n_threads: int = 4
+    llamacpp_n_gpu_layers: int = 0  # CPU-only for Orange Pi
+    llamacpp_max_tokens: int = 512
     
     # API Configuration
     api_key: Optional[str] = None

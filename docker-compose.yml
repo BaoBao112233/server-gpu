@@ -1,33 +1,195 @@
 version: '3.8'
 
-services:
-  # Ollama service
-  ollama:
-    image: ollama/ollama:latest
-    container_name: llm-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    restart: unless-stopped
-    networks:
-      - llm-network
 
-  # API Server
-  api-server:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            return False        except:            return self.model is not None        try:        """Check if backend is healthy"""    async def health_check(self) -> bool:            return ["mini-orca-small-q4_k_m"]        """List available models"""    async def list_models(self) -> List[str]:            raise NotImplementedError("Embeddings not supported by this model")        logger.warning("Embeddings not supported by Mini Orca")        """Generate embeddings (not supported by default Mini Orca)"""    async def get_embeddings(self, texts: List[str], model: str) -> List[List[float]]:                raise            logger.error(f"Error in streaming: {e}")        except Exception as e:                        yield "data: [DONE]\n\n"            yield f"data: {final_chunk}\n\n"            }                }]                    "finish_reason": "stop"                    "delta": {},                    "index": 0,                "choices": [{                "model": request.model or "mini-orca-small",                "created": int(time.time()),                "object": "chat.completion.chunk",                "id": f"chatcmpl-{int(time.time())}",            final_chunk = {            # Send final chunk                                    yield f"data: {chunk}\n\n"                        }                            }]                                "finish_reason": None                                "delta": {"content": text},                                "index": 0,                            "choices": [{                            "model": request.model or "mini-orca-small",                            "created": int(time.time()),                            "object": "chat.completion.chunk",                            "id": f"chatcmpl-{int(time.time())}",                        chunk = {                    if text:                    text = output["choices"][0].get("text", "")                if "choices" in output and len(output["choices"]) > 0:            ):                echo=False                stream=True,                stop=["### User:", "### System:"],                top_p=top_p,                temperature=temperature,                max_tokens=max_tokens,                prompt,            for output in self.model(            # Stream response                        logger.info(f"Starting streaming generation")                        top_p = request.top_p or 0.9            temperature = request.temperature or 0.7            max_tokens = request.max_tokens or self.max_tokens                        prompt = self._format_messages(request.messages)        try:        """Generate a streaming chat completion"""    async def chat_completion_stream(self, request: ChatCompletionRequest) -> AsyncGenerator[str, None]:                raise            logger.error(f"Error in chat_completion: {e}")        except Exception as e:            }                }                    "total_tokens": response["usage"]["total_tokens"]                    "completion_tokens": response["usage"]["completion_tokens"],                    "prompt_tokens": response["usage"]["prompt_tokens"],                "usage": {                }],                    "finish_reason": "stop"                    },                        "content": response["choices"][0]["text"].strip()                        "role": "assistant",                    "message": {                    "index": 0,                "choices": [{                "model": request.model or "mini-orca-small",                "created": int(time.time()),                "object": "chat.completion",                "id": f"chatcmpl-{int(time.time())}",            return {            # Format response in OpenAI-compatible format                        logger.info(f"Generation completed in {duration:.2f}s")            duration = time.time() - start_time                        )                echo=False                stop=["### User:", "### System:"],                top_p=top_p,                temperature=temperature,                max_tokens=max_tokens,                prompt,            response = self.model(            # Generate response                        start_time = time.time()            logger.info(f"Generating completion with max_tokens={max_tokens}, temp={temperature}")                        top_p = request.top_p or 0.9            temperature = request.temperature or 0.7            max_tokens = request.max_tokens or self.max_tokens            # Get model parameters                        prompt = self._format_messages(request.messages)        try:        """Generate a chat completion"""    async def chat_completion(self, request: ChatCompletionRequest) -> Dict[str, Any]:            return prompt        prompt += "### Assistant:\n"                        prompt += f"### Assistant:\n{msg.content}\n\n"            elif role == "ASSISTANT":                prompt += f"### User:\n{msg.content}\n\n"            elif role == "USER":                prompt += f"### System:\n{msg.content}\n\n"            if role == "SYSTEM":            role = msg.role.upper()        for msg in messages:        prompt = ""        # Mini Orca uses a specific prompt format        """Format messages into a prompt string for Mini Orca"""    def _format_messages(self, messages: List[Message]) -> str:                raise            logger.error(f"Failed to load model: {e}")        except Exception as e:            logger.info("Model loaded successfully")            )                use_mmap=True,   # Memory-map the model file                use_mlock=True,  # Lock model in RAM (important for low RAM systems)                verbose=False,                n_gpu_layers=self.n_gpu_layers,                n_threads=self.n_threads,                n_ctx=self.n_ctx,                model_path=self.model_path,            self.model = Llama(                        logger.info(f"Config: n_ctx={self.n_ctx}, n_threads={self.n_threads}, n_gpu_layers={self.n_gpu_layers}")            logger.info(f"Loading model from {self.model_path}")        try:        """Initialize the LLaMA.cpp model"""    def _initialize_model(self):            self._initialize_model()        self.max_tokens = int(os.getenv("MAX_TOKENS", "512"))        self.n_gpu_layers = int(os.getenv("N_GPU_LAYERS", "0"))  # 0 for CPU-only (Orange Pi)        self.n_threads = int(os.getenv("N_THREADS", "4"))        self.n_ctx = int(os.getenv("N_CTX", "2048"))        self.model_path = os.getenv("MODEL_PATH", "/app/models/mini-orca-small-q4_k_m.gguf")        self.model = None    def __init__(self):        """LLaMA.cpp backend for running quantized models on low-resource devices"""class LlamaCppBackend(BaseBackend):logger = logging.getLogger(__name__)import timeimport loggingfrom app.models import ChatCompletionRequest, Messagefrom app.backends.base import BaseBackendfrom llama_cpp import Llamafrom typing import AsyncGenerator, List, Dict, Anyimport os"""Optimized for Orange Pi RV2 with 4GB RAMservices:
+  # LLaMA.cpp API Server with Mini Orca
+  llama-cpp-server:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: llm-api-server
+    container_name: mini-orca-server
     ports:
       - "8000:8000"
     volumes:
@@ -35,17 +197,21 @@ services:
       - ./models:/app/models
       - ./logs:/app/logs
     environment:
-      - MODEL_BACKEND=${MODEL_BACKEND:-ollama}
-      - OLLAMA_HOST=http://ollama:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-phi3:mini}
-    depends_on:
-      - ollama
+      - MODEL_BACKEND=llama-cpp
+      - MODEL_PATH=/app/models/mini-orca-small-q4_k_m.gguf
+      - N_CTX=2048
+      - N_THREADS=4
+      - N_GPU_LAYERS=0
+      - MAX_RAM_MB=3072
     restart: unless-stopped
     networks:
       - llm-network
+    mem_limit: 3.5g
+    memswap_limit: 3.5g
+    shm_size: 256m
 
 volumes:
-  ollama_data:
+  model_data:
 
 networks:
   llm-network:
